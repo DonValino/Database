@@ -1,0 +1,101 @@
+(1)
+create sequence Bin_sequence
+start with 1
+increment by 1;
+
+create sequence BinChange_sequence
+start with 1
+increment by 1;
+
+
+create table Bin
+(bin_id number,
+bin_type varchar(20),
+bin_capacity varchar(20),
+bin_pricePerKilo number,
+bin_Price20Kg number,
+primary key (bin_id)
+);
+
+create table BinChangeLog
+(change_id number,
+description varchar(50),
+date_time date,
+numrows number,
+primary key (change_id)
+);
+
+insert into Bin values( Bin_sequence.NEXTVAL,'Black','120ltr',0.31,6.20);
+insert into Bin values( Bin_sequence.NEXTVAL,'Black','180ltr',0.31,6.20);
+insert into Bin values( Bin_sequence.NEXTVAL,'Green','240ltr',0.0,0.0);
+insert into Bin values( Bin_sequence.NEXTVAL,'Brown','180ltr',0.24,4.80);
+insert into Bin values( Bin_sequence.NEXTVAL,'Black','240ltr',0.31,6.20);
+insert into Bin values( Bin_sequence.NEXTVAL,'Black','180ltr',0.31,6.20);
+insert into Bin values( Bin_sequence.NEXTVAL,'Green','240ltr',0.0,0.0);
+insert into Bin values( Bin_sequence.NEXTVAL,'Brown','160ltr',0.24,4.80);
+insert into Bin values( Bin_sequence.NEXTVAL,'Black','160ltr',0.31,6.20);
+insert into Bin values( Bin_sequence.NEXTVAL,'Green','240ltr',0.0,0.0);
+insert into Bin values( Bin_sequence.NEXTVAL,'Brown','180ltr',0.24,4.80);
+
+
+(2)
+
+create or replace PROCEDURE UpdateBinCharge(
+p_BinType BIN.BIN_TYPE%TYPE,
+p_NewPricePerKilo BIN.bin_pricePerKilo%TYPE) AS
+
+v_BinType BIN.BIN_TYPE%TYPE := p_BinType;
+v_PricePerKilo BIN.bin_pricePerKilo%TYPE := p_NewPricePerKilo;
+v_PricePer20Kg BIN.bin_Price20Kg%TYPE;
+
+
+CURSOR c_Bin IS
+SELECT * FROM BIN
+WHERE BIN_TYPE = p_BinType
+FOR UPDATE OF bin_pricePerKilo;
+v_numRows Number;
+
+BEGIN
+FOR v_BinInfo IN c_Bin LOOP
+v_numRows := c_Bin%ROWCOUNT;
+UPDATE BIN
+SET bin_pricePerKilo = v_PricePerKilo
+WHERE CURRENT OF c_Bin;
+
+v_PricePer20Kg := (v_BinInfo.bin_pricePerKilo * 20);
+
+UPDATE BIN
+SET bin_Price20Kg = v_PricePer20Kg
+WHERE bin_type = v_BinType;
+END LOOP;
+INSERT INTO BinChangeLog(change_id,description,date_time,numrows) VALUES (BinChange_sequence.NEXTVAL,'PRICE PER KILO & PRICE PER KG UPDATE',SYSDATE,v_numRows);
+COMMIT;
+END UpdateBinCharge;
+
+
+
+(3)
+BEGIN
+UpdateBinCharge('Black',2);
+END;
+
+(4)
+Dublin Waste Management  can use a trigger to check that the new price per kilo is not a negative number or more than a specified value.
+
+SET SERVEROUTPUT ON;
+CREATE OR REPLACE TRIGGER TYPE_CHECK
+BEFORE INSERT OR UPDATE ON BIN
+FOR EACH ROW
+WHEN (NEW.bin_pricePerKilo < 0 OR NEW.bin_pricePerKilo > 20)
+BEGIN
+DBMS_OUTPUT.PUT_LINE('THE PRICE PER KILO CANNOT BE LESS THAN 0 or MORE THAN 20. YOU TRIED TO INSERT/UPDATE A RPICE PER KILO VALUE OF: ' ||:NEW.bin_pricePerKilo);
+END;
+
+BEGIN
+UpdateBinCharge('Black',21);
+END;
+
+BEGIN
+UpdateBinCharge('Black',-21);
+END;
+
